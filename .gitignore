@@ -1,0 +1,7 @@
+*.swp
+*.log
+secret
+uploads/*
+priv/static
+export/*.pgdump
+export/*.dump

@@ -1,0 +1,78 @@
+version: '2.4'
+
+services:
+  postgres:
+    image: postgres:9.6-alpine
+    container_name: pleroma_postgres
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - POSTGRES_USER=${INSTANCE_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=pleroma
+    ports:
+      - 5432:5432
+    networks:
+      nn:
+        ipv4_address: 192.168.5.100
+    volumes:
+      - ./Scripts/setup_postgres/:/docker-entrypoint-initdb.d/
+      - /etc/localtime:/etc/localtime:ro
+      - ./postgres:/var/lib/postgresql/data
+      - ./tmppg:/tmp/export
+      - /var/log/postgresql:/var/log/postgresql
+
+  pleroma:
+    build: .
+    image: pleroma
+    container_name: pleroma_web
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+      - UID=${PUID}
+      - GID=${PGID}
+    ports:
+      - 4000:4000
+    networks:
+      nn:
+        ipv4_address: 192.168.5.101
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./uploads:/pleroma/uploads
+    depends_on:
+      - postgres
+
+  nginx:
+    build: .
+    image: nginx
+    container_name: nginx
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+    ports:
+      - 80:80
+      - 443:443
+      - 4000:4000
+    networks:
+      nn:
+        ipv4_address: 192.168.5.102
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./pleroma_config/nginx.conf:/etc/nginx/nginx.conf
+      - ./pleroma_config/default.nginx:/etc/nginx/sites-enabled/default
+      - ./pleroma_config/pleroma.nginx:/etc/nginx/sites-enabled/pleroma.nginx
+      - /var/log/nginx:/var/log/nginx
+      - /var/log/letsencrypt:/var/log/letsencrypt
+      - /etc/letsencrypt:/etc/letsencrypt
+    depends_on:
+      - pleroma
+
+networks:
+  nn:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.5.0/24
